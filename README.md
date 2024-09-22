@@ -31,5 +31,5 @@ The dataset contains monthly records of tourists visiting Greece over a specifie
    # Load data
    data <- read_excel("data/Book1.xlsx")
    ts_data <- ts(data$Nombre, start = c(2007, 1), frequency = 12)
-#Conclusion
+## Conclusion
 This project demonstrates the application of time series analysis to forecast tourism trends, providing valuable insights for decision-making in the tourism sector.
