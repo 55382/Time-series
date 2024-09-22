@@ -21,3 +21,15 @@ The dataset contains monthly records of tourists visiting Greece over a specifie
 2. Install the necessary R packages using the following command:
    ```R
    install.packages(c("readxl", "fpp3", "forecast", "ggplot2", "dplyr", "lubridate", "tsibble"))
+## Usage
+
+1. **Load the data and create a time series object:**
+   ```R
+   library(readxl)
+   library(fpp3)
+
+   # Load data
+   data <- read_excel("data/Book1.xlsx")
+   ts_data <- ts(data$Nombre, start = c(2007, 1), frequency = 12)
+#Conclusion
+This project demonstrates the application of time series analysis to forecast tourism trends, providing valuable insights for decision-making in the tourism sector.
