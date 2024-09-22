@@ -1,0 +1,985 @@
+title: "Atelier"
+
+author: "Sana & Hana"
+
+date: '2023-03-29'
+
+output:
+
+  pdf_document: default
+
+  html_document: default
+
+---
+
+# Importation de la base:
+
+```{r}
+
+library(readxl)
+
+Book1 <- read_excel("C://Users//hanab//Book1.xlsx")
+
+BD <- Book1
+
+head(BD)
+
+```
+
+
+
+
+
+# Chargement des librairies:
+
+```{r}
+
+library(fpp3)
+
+library(zoo)
+
+library(forecast)
+
+library(tseries)
+
+library(astsa)
+
+library(dplyr)
+
+library(lubridate)
+
+library(tsibble)
+
+library(tsibble)
+
+library(tidyverse)
+
+library(ggplot2)
+
+library(gridExtra)
+
+library(grid)
+
+library(ggthemes)
+
+library(corrplot)
+
+library(lmtest)
+
+library(sandwich)
+
+library(TSA)
+
+library(car)
+
+library(aTSA)
+
+library(forecast)
+
+library(astsa)
+
+library(urca)
+
+library(seastests)
+
+library(TSstudio)
+
+library("cowplot")
+
+library(stats)
+
+library(uroot)
+
+```
+
+
+
+
+
+# Transformer le vecteur BD$Nombre en un objet de type ts.
+
+La commande ts permet de convertir un vecteur en une série temporelle.
+
+```{r}
+
+ts1 <- ts(BD$Nombre,start=c(2007,1), end=c(2016,6), frequency = 12)
+
+ts1
+
+train0 <- window(ts1, end=c(2014,12))
+
+test0 <- window(ts1,start=c(2015,1))
+
+```
+
+Données représentant le nombre mensuel des visiteurs vers la Grèce de janvier 2007 à juin 2016.
+
+Chaque ligne de données représente une année soit douze valeurs
+
+Lors de la conversion du vecteur en série temporelle, on a start = c(2007,1) ,end=c(2016,6) , frequency=12 (cad mensuelle)
+
+
+
+
+
+```{r}
+
+str(ts1)
+
+```
+
+Cette sortie nous indique que "ts1" est un objet de série chronologique avec 114 observations (mois).
+
+
+
+
+
+```{r}
+
+summary(ts1)
+
+```
+
+La fonction de synthèse a été utilisée pour obtenir la valeur minimale, le premier quartile, la médiane, la moyenne, le troisième quartile et la valeur maximale de la série. La série va d'une valeur minimale de 1 à une valeur maximale de 4 993 464, avec une valeur médiane de 917 911. Sans contexte supplémentaire, il est difficile de fournir une interprétation plus précise de ces données.
+
+
+
+
+
+# Représenter graphiquement la série.
+
+La représentation de la série :Ici on va diviser la fenêtre en deux parties pour bien comprendre le concept de la sérietemporelle , donc dans la première partie on va représenter le vecteur BD$Nombre , et la deuxièmepartie on va représenter la série temporelle ts1:
+
+```{r}
+
+par (mfrow=c(1,2)) 
+
+plot(BD$Nombre)
+
+plot.ts(ts1)
+
+```
+
+==> La deuxième partie est la représentation de la série temporelle (les données en fonction du temps).
+
+La saisonnalité devient très apparente dans cette nouvelle série , il y a un comportement saisonnier mais pas de tendance bien évidemment puisque la variations de cette série a une amplitude qui semble augmenter au cours du temps.
+
+
+
+
+
+# Variance d’une série temporelle:
+
+```{r}
+
+variance <- rollapply(ts1, width = 12, FUN = var, align = "right")
+
+print(variance)
+
+plot(variance)
+
+```
+
+Notre série montre une variance croissante au fil des années, cela peut indiquer une instabilité ou une non-stationnarité dans les données. Cela signifie que les propriétés statistiques de la série, telles que la moyenne et la variance, changent avec le temps.
+
+Il est donc possible que la tendance de la série reste stable tandis que sa variance varie.
+
+
+
+# ACF:
+
+```{r}
+
+autocorr = acf(ts1, lag.max=25)
+
+```
+
+La fonction d’autocorrélation est périodique,ce qui indique une périodicité dans la série temporelle. La ligne pointillée bleue indique le niveau en-dessous duquel la corrélation n’est plus statistiquement signiﬁcative.
+
+Les valeurs ≥ 0.7 sont fortement correles
+
+Les valeurs < 0.7 sont faiblement correles
+
+Les valeurs a l'interieur de l'interval de confiance ne sont pas correles. On trouve que chaque début d'année les données ont une correlation positive forte puis diminue a cause de la perte de données
+
+Les traits pointillés horizentaux représentent l'intervalle de confiance ; les valeurs à l'intérieurde cet intervalle indique que la corrélation et nulle donc les données sont indépendants , nesont pas corrélées (liées)
+
+
+
+
+
+# Vérifier si la série est corrélée:
+
+La vérification de la corrélation entre les observations d'une série chronologique est importante car cela peut fournir des informations sur la structure de la série temporelle.
+
+Si les observations sont corrélées, cela indique qu'il existe une certaine dépendance entre les observations et que les observations passées peuvent être utilisées pour prédire les observations futures. Cela est particulièrement important pour la modélisation et la prévision de la série chronologique, car cela permet l'utilisation de modèles qui prennent en compte la dépendance temporelle des données.
+
+Pour vérifier la corrélation de notre série, on a utilisé le Box.test qui effectue un test statistique de la boîte de Ljung-Box ou si le p-value du test est inférieur à un certain seuil (généralement 0,05), on rejette l'hypothèse nulle et on conclut que la série chronologique est autocorrélée jusqu'à un certain lag. 
+
+Plus précisément, le test de la boîte de Ljung-Box est utilisé pour tester l'hypothèse nulle que les corrélations croisées d'ordre k dans la série chronologique sont nulles pour tous les k jusqu'à un certain nombre de retards spécifié. Dans ce cas, le test est effectué sur les autocorrélations de la série, qui sont stockées dans la variable "autocorr$acf".
+
+```{r}
+
+Box.test(autocorr$acf, lag = 12, type = "Ljung-Box")
+
+```
+
+le test de Box-Ljung a donné une statistique de test X² de 115.44 pour 12 degrés de liberté et une p-value de 2,2e-16 < 0.05 : seuil de significativité. On peut rejeter l'hypothèse nulle  donc on peut conclure que les autocorrélations jusqu'à un certain lag ne sont pas nulles et que la série chronologique est autocorrélée.
+
+
+
+
+
+# Décomposition:
+
+Commencer avec la fonction decompose(): Décomposer la série en faisant varier à chaque fois le type de la décomposition avec les options type="add" ou "mult", qui permettent de spécifier si on souhaite utiliser un modèle additif (par défaut) ou multiplicatif.
+
+Decompose() :Décomposer une série chronologique en composantes saisonnières, tendancielles et irrégulières en utilisant des moyennes mobiles. Traite avec un composant saisonnier additif ou multiplicatif.
+
+Le modèle additif utilisé est: Y [t] = T [t] + S [t] + e [t]
+
+Le modèle multiplicatif utilisé est: Y [t] = T [t] * S [t] * e [t]
+
+decompose() utilise la technique de la moyenne mobile pour l'estimation de tendance, d'où la présence de NA au niveau de TREND ..
+
+
+
+Le modèle additif :
+
+```{r}
+
+plot(decompose(ts1,"additive"))
+
+```
+
+
+
+Le modèle multiplicatif :
+
+```{r}
+
+plot(decompose(ts1,"multiplicative"))
+
+```
+
+
+
+Analyser les résidus de chaque type de décomposition
+
+```{r} 
+
+residusadd= (decompose(ts1, type="additive"))$random 
+
+residusmult= (decompose(ts1, type="mult"))$random
+
+table_residus <- data.frame(residusadd, residusmult)
+
+names(table_residus) <- c("Additive", "Multiplicative")
+
+print(table_residus)
+
+```
+
+
+
+```{r}
+
+par (mfrow=c(1,2)) 
+
+hist(residusadd)
+
+hist(residusmult)
+
+```
+
+==>On remarque que les residusadd ne suivent pas la loi normale
+
+==>Le modèle multiplicatif est meilleur quele modèle additif car les résidus du modèle multiplicatif présentent moins de fluctuations que le modèle additif. De meme l'histogramme des résidus nous conduit a dire que les données du modèle multiplicatif sont plus homogènes que celles du modèle additif.
+
+
+
+En outre, la normalité des résidus est également importante pour l'interprétation des résultats. Si les résidus ne sont pas normalement distribués, il peut être difficile d'interpréter correctement les coefficients de régression ou les intervalles de confiance associés. En revanche, si les résidus suivent une distribution normale, cela permet une interprétation plus fiable des résultats du modèle.
+
+
+
+Le test de Shapiro-Wilk est un test statistique qui permet de vérifier si un échantillon de données suit ou non une distribution normale. Sous R, la fonction shapiro.test() permet de réaliser ce test.
+
+Le résultat du test inclura la statistique de test W, la valeur de p et une indication sur la signification du résultat. Si la valeur de p est inférieure à 0,05, alors on peut rejeter l'hypothèse nulle selon laquelle les données suivent une distribution normale. Si la valeur de p est supérieure à 0,05, on ne peut pas rejeter l'hypothèse nulle et on peut considérer que les données suivent une distribution normale.
+
+
+
+```{r}
+
+shapiro.test(residusmult)
+
+```
+
+Le résultat du test de Shapiro-Wilk indique que la statistique de test W est égale à 0,98609 et que la valeur de p est égale à 0,3656.
+
+La valeur de p étant supérieure à 0,05, on ne peut pas rejeter l'hypothèse nulle selon laquelle les résidus multiplicatifs suivent une distribution normale. Autrement dit, il n'y a pas suffisamment de preuves pour dire que les données ne suivent pas une distribution normale.
+
+Cependant, il est important de garder à l'esprit que les tests de normalité sont souvent sensibles à la taille de l'échantillon. Si l'échantillon est petit, le test peut manquer de puissance pour détecter des écarts par rapport à une distribution normale. Dans ce cas, il peut être utile d'utiliser d'autres méthodes de diagnostic pour évaluer la normalité des données.
+
+
+
+
+
+# Observation de la saisonnalité:
+
+On va visualiser les composantes saisonnières de la série temporelle ts1 à l'aide d'un graphique en boîte (ou boxplot en anglais). La fonction "ts_seasonal" calcule les moyennes des observations de la série pour chaque période saisonnière et trace les boîtes qui montrent la variabilité des observations dans chaque période saisonnière. La visualisation permet ainsi d'observer les variations saisonnières de la série.
+
+Ensuite, On va calculer la matrice de corrélation de la série ts1. Et comme ts1 est une série temporelle univariée, la fonction renverra simplement la corrélation entre chaque observation et son observation précédente.
+
+```{r}
+
+ts_seasonal(ts1,type="box")
+
+ts_cor(ts1)
+
+library(forecast)
+
+ggseasonplot(ts1, year.labels=TRUE, year.labels.left=TRUE)
+
+#o Visualizar la serie temporal por años colores de forma polar:
+
+ggseasonplot(ts1, polar="TRUE")
+
+```
+
+Graphiquement, esa boites à moustache prouve l'existence de la saisonnalité. S’il n’y avait pas d’effet saisonnier, ces 12 boites se ressembleraient !
+
+De plus, la présence de seasonal lag 12 dans l'ACF indique la présence de la saisonnalité.
+
+
+
+
+
+# Teste de saisonnalité:
+
+
+
+Effectuons d'abors le test de Hegy qui est une extension du test de racine unitaire de Dickey-Fuller augmenté pour les données saisonnières. Il affiche la statistique de test pour chaque hypothèse de racine unitaire, avec la valeur correspondante de la p-value.
+
+```{r}
+
+library(uroot)
+
+hegy_result <- hegy.test(ts1)
+
+hegy_result
+
+```
+
+Le test F_1:12 teste l'hypothèse nulle selon laquelle il n'y a pas de racine unitaire saisonnière dans la série temporelle pour tous les lags saisonniers de 1 à 12. La statistique de test pour cette hypothèse est de 7.4262 avec une p-value très faible de 0,
+
+La faible p-value suggère qu'il y a suffisamment de preuves pour rejeter l'hypothèse nulle selon laquelle il n'y a pas de racine unitaire saisonnière dans la série temporelle pour tous les lags saisonniers de 1 à 12. Cela suggère fortement qu'il y a une structure saisonnière significative dans la série temporelle et qu'un modèle de série temporelle saisonnier approprié doit être ajusté pour tenir compte de cette saisonnalité.
+
+La fonction isSeasonal est une fonction R qui permet de déterminer si une série temporelle a une composante saisonnière significative.
+
+
+
+La fonction utilise une approche basée sur les filtres de Hodrick-Prescott pour décomposer la série temporelle en une tendance et une composante saisonnière. Ensuite, elle calcule une statistique de test basée sur la variance de la composante saisonnière pour déterminer si la série a une composante saisonnière significative:
+
+1- Calcule la variance de la série temporelle originale.
+
+2- Calcule la variance de la série temporelle différée d'une saison en utilisant la fonction diff() avec un décalage de la période de saisonnalité.
+
+3- Compare les variances en calculant le rapport entre la variance de la série temporelle différée d'une saison et la variance de la série temporelle originale.
+
+4- Si le rapport de variance est significativement inférieur à 1, la série est considérée comme saisonnière.
+
+Si la statistique de test est supérieure à une valeur seuil, la fonction renvoie TRUE, indiquant que la série temporelle est saisonnière. Sinon, elle renvoie FALSE, indiquant que la série n'a pas de composante saisonnière significative.
+
+
+
+```{r}
+
+isSeasonal(ts1) #renvoie une valeur logique
+
+```
+
+
+
+# Plot de la composante saisonnière:
+
+```{r}
+
+d <- decompose(ts1,"multiplicative")
+
+d$seasonal
+
+plot(d$seasonal)
+
+```
+
+Ce plot montre que la saisonnalité varie au fil du temps ce qui nous empeche pour désaisonnaliser notre série d'utiliser la méthode de la moyenne mobile centrée qui consiste à soustraire la moyenne mobile centrée de la série chronologique et qui est simple mais elle ne fonctionne pas bien si la saisonnalité varie au fil du temps.
+
+Et de meme pour la méthode de la régression saisonnière :qui utilise une régression linéaire pour estimer les coefficients saisonniers et qui peut être utilisée que si la saisonnalité varie de manière linéaire.
+
+Par contre, on remarque que la composante saisonnière est stable car les motifs saisonniers sont cohérents d'une année à l'autre. Dans cet exemple, les valeurs saisonnières semblent être les mêmes pour chaque mois d'une année à l'autre, ce qui peut indiquer que la composante saisonnière est stable.
+
+Pour cela, nous allons effectuer la méthode STL, cette méthode utilise une décomposition en sous-séries saisonnières et tendancielles. Elle est particulièrement utile pour les séries présentant une saisonnalité non régulière ou des tendances non linéaires. 
+
+Appliquons la méthode STL en utilisant la fonction stl() du package "forecast". Cette fonction prend en entrée la série chronologique, le nombre de périodes dans une saisonnalité et le paramètre s.window qui permet de spécifier la longueur de la fenêtre de lissage pour la saisonnalité. 
+
+
+
+
+
+# Désaisonnalisation:
+
+
+
+La désaisonnalisation ci-dessous consiste à soustraire de la série originale ts1 la même période de l'année précédente, c'est-à-dire la différence entre la valeur de la série pour le mois actuel et le mois de l'année précédente.
+
+Le paramètre differences spécifie le nombre de différences à prendre. Dans ce cas, differences = 1 indique que nous prenons la première différence, c'est-à-dire que nous soustrayons la série originale de sa valeur décalée de 12 mois.
+
+Le paramètre lag spécifie le décalage à utiliser pour la différence. Dans ce cas, lag = 12 indique que nous prenons la différence entre la valeur de la série actuelle et la valeur de la série il y a 12 mois. Cela permet de capturer la saisonnalité annuelle de la série.
+
+Le résultat est une nouvelle série ts_ds qui a été ajustée pour éliminer la composante saisonnière.
+
+
+
+```{r}
+
+ts_ds <- diff(ts1, differences = 1, lag = 12)
+
+plot(ts_ds)
+
+```
+
+
+
+Effectuons une autre fois isSeasonal pour tester si la série est bien désaisonnalisée.
+
+
+
+```{r}
+
+isSeasonal(ts_ds)
+
+```
+
+
+
+
+
+# Test de la stationnarité:
+
+Ce code utilise les fonctions ggAcf() et ggPacf() pour tracer la fonction d'autocorrélation (ACF) et la fonction d'autocorrélation partielle (PACF) de la série désaisonnalisée (ts_ds).
+
+
+
+```{r}
+
+ggAcf(ts_ds) # ACF
+
+ggPacf(ts_ds) # PACF
+
+```
+
+A première vue, on voit que celle-ci est clairement non stationnaire puisque l'ACF décroît lentement au fil du temps, ce qui indique que les observations sont fortement corrélées même à des distances temporelles et  importantes et la PACF montre une décroissance lente avec des retours réguliers au-dessus du seuil de signification, ce qui indique que les observations sont fortement corrélées même à des distances temporelles importantes.
+
+
+
+Nous pouvons en outre le confirmer avec le tests ADF :
+
+Le test Augmented Dickey-Fuller (ADF) est un test statistique utilisé pour tester la stationnarité d'une série temporelle. Il teste l'hypothèse nulle selon laquelle la série temporelle n'est pas stationnaire contre l'hypothèse alternative selon laquelle la série temporelle est stationnaire.
+
+Le test ADF peut être effectué de différentes manières, selon l'hypothèse alternative choisie. Dans ce cas, le test a été effectué avec trois hypothèses alternatives différentes :
+
+Type 1 : sans dérive ni tendance
+
+Type 2 : avec une dérive mais sans tendance
+
+Type 3 : avec une dérive et une tendance
+
+Le test ADF calcule une statistique de test appelée statistique ADF. Si cette statistique est inférieure à une certaine valeur critique, l'hypothèse nulle est rejetée, ce qui suggère que la série temporelle est stationnaire.
+
+```{r}
+
+adf.test(ts_ds)
+
+```
+
+Dans les résultats affichés, les valeurs de la statistique ADF et de la p-valeur pour chaque hypothèse alternative et chaque lag sont présentées. Si la p-valeur est inférieure au niveau de signification choisi (typiquement 0,05), l'hypothèse nulle est rejetée.
+
+Dans ce cas, les résultats montrent que pour les trois types d'hypothèses alternatives, la p-valeur est supérieure au niveau de signification de 0,05. Par conséquent, on ne peut pas rejeter l'hypothèse nulle et on peut conclure que la série temporelle est non stationnaire.
+
+
+
+
+
+# Stationnariser la série:
+
+Ce code applique la fonction diff sur la série ts_ds avec une différence d'ordre 1, c'est-à-dire qu'il calcule la différence entre chaque observation et son observation précédente. Cela permet de transformer la série en une nouvelle série, où chaque observation représente la variation entre deux observations consécutives.
+
+Cette technique est souvent utilisée pour rendre une série temporelle stationnaire, car la différenciation peut aider à éliminer la tendance et à rendre la série plus aléatoire. La nouvelle série obtenue après différenciation est stockée dans l'objet ts_ds_diff.
+
+
+
+```{r}
+
+ts_ds_diff<- diff(ts_ds, differences=1)
+
+autoplot(ts_ds_diff) # plot
+
+```
+
+
+
+
+
+Nous pouvons exécuter le test ADF  pour vérifier la stationnarité de la nouvelle série:
+
+```{r}
+
+adf.test(ts_ds_diff)
+
+```
+
+J'ai effectué un test ADF pour différents types de modèles : sans dérive ni tendance, avec dérive mais sans tendance, et avec dérive et tendance. Les résultats montrent que pour chaque type de modèle, le p-value est inférieur ou égal à 0,01, ce qui suggère que la série chronologique est stationnaire pour tous les types de modèles testés
+
+
+
+
+
+  on peut déduire qu'il y a absence de racines unitaires.et donc la stationnarité
+
+
+
+
+
+# Modélisation avec ARIMA :
+
+
+
+ARIMA (Autoregressive Integrated Moving Average) est un modèle classique de séries temporelles qui utilise l'autorégression, la moyenne mobile et la différenciation pour modéliser une série. Il peut être utilisé pour modéliser des séries stationnaires et non-stationnaires.
+
+D'abord, nous avons divisé notre série en deux, une partie train et une partie test
+
+
+
+```{r}
+
+train1 <- window(ts_ds, end=c(2014,12))
+
+test1 <- window(ts_ds,start=c(2015,1))
+
+```
+
+
+
+La fonction auto.arima permet d'automatiquement sélectionner les ordres de l'ARIMA qui minimisent l'information de Bayes ou le critère d'information d'Akaike (AIC).
+
+Les arguments stepwise, approximation, seasonal et allowdrift sont utilisés pour spécifier les options de modélisation. stepwise=FALSE indique que la méthode stepwise de sélection de modèles ne sera pas utilisée et que l'algorithme de recherche complet sera exécuté. approximation=FALSE indique que la fonction d'approximation des erreurs ne sera pas utilisée. seasonal=FALSE indique que le modèle ne prendra pas en compte la saisonnalité. allowdrift=FALSE indique que la dérive n'est pas autorisée dans le modèle.
+
+L'argument trace=TRUE permet d'afficher les détails de l'ajustement de modèle en cours d'exécution.
+
+
+
+```{r}
+
+ts_arima = auto.arima(train1,
+
+                             stepwise=FALSE,
+
+                             approximation=FALSE,
+
+                             seasonal=FALSE,
+
+                             allowdrift=FALSE,
+
+                      trace=TRUE)
+
+summary(ts_arima)
+
+```
+
+
+
+La fonction auto.arima retourne un objet Arima qui contient les coefficients de l'ARIMA, les résidus, les statistiques du modèle et autres informations. Il est possible d'accéder à ces informations en utilisant les fonctions summary, coef, fitted, resid, etc.
+
+La sortie fournit les résultats de la meilleure modélisation de la série train1 obtenue à l'aide de la fonction auto.arima. Le modèle sélectionné est un ARIMAARIMA(2,1,1) avec une moyenne nulle, ce qui indique qu'il s'agit d'un modèle autorégressif intégré à la moyenne mobile d'ordre 2 et d'ordre de différenciation 1. LCe résultat est issu d'un modèle ARIMA (2,0,1) avec une moyenne nulle, estimé sur une série appelée "train1".
+
+
+
+Les coefficients de ce modèle sont :
+
+
+
+ar1 : 0.9312
+
+ar2 : -0.2398
+
+ma1 : -0.9309
+
+La valeur de sigma^2 est de 1.612e+10 et la log-vraisemblance est de -1092.04. Les critères d'information sont :
+
+
+
+AIC = 2192.07
+
+AICc = 2192.58
+
+BIC = 2201.75
+
+Enfin, les erreurs de prédiction sur l'échantillon d'entraînement sont :
+
+
+
+ME (Mean Error) = 12654.06
+
+RMSE (Root Mean Squared Error) = 124645
+
+MAE (Mean Absolute Error) = 81632.2
+
+MPE (Mean Percentage Error) = 554.8432
+
+MAPE (Mean Absolute Percentage Error) = 625.3209
+
+MASE (Mean Absolute Scaled Error) = 0.6066457
+
+ACF1 (Autocorrelation Function lag 1) = -0.02623439
+
+
+
+
+
+ Le coefficient d'autocorrélation partielle est également non significatif pour tous les retards.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Validation du modèle ARIMA(2,0,1):
+
+Il est important de vérifier les résidus du modèle pour s'assurer que le modèle ARIMA est adéquat. Si les résidus ne sont pas stationnaires, cela indique que le modèle ARIMA ne parvient pas à capturer toutes les informations temporelles de la série, ce qui signifie que le modèle n'est pas optimal et qu'il peut être amélioré.
+
+
+
+Pour vérifier la stationnarité des résidus, vous pouvez effectuer les  metjodes suivantes :
+
+
+
+
+
+Il est recommandé de toujours inspecter visuellement les résidus du modèle pour s'assurer qu'ils sont bien des bruits blancs. On peut le faire en utilisant la fonction checkresiduals. Cette fonction produit plusieurs graphiques pour vérifier si les résidus sont indépendants, ont une distribution normale et si leur variance est constante.
+
+en utilisant Le test de Ljung-Box pour l'autocorrélation des résidus
+
+
+
+```{r}
+
+checkresiduals(ts_arima)
+
+```
+
+
+
+Ljung-Box test est utilisé pour tester l'autocorrélation des résidus d'un modèle. Le résultat montre que la valeur de Q* est 13.743 et le degré de liberté est 14. La p-valeur est 0.469, ce qui indique qu'il n'y a pas suffisamment de preuves pour rejeter l'hypothèse nulle selon laquelle les résidus sont indépendants et identiquement distribués. Cela suggère que le modèle ARIMA(2,1,1) avec zéro moyen est adéquat pour modéliser la série temporelle.
+
+==>le modéle ARIMA(2,1,1) est donc valide pour la prévision
+
+
+
+
+
+#Previsions ARIMA
+
+Effectuons maintenant les prévisions:
+
+Le modèle ARIMA(2,1,1) est utilisé pour prédire les valeurs futures de la série à l'aide de la commande predict(), en spécifiant le nombre de pas de temps à prédire avec n.ahead = length(test1). Les prévisions sont stockées dans l'objet predictions.
+
+Le premier graphe affiche les prévisions générées par le modèle, tandis que le second graphe affiche la série de données de test test1.
+
+Enfin, la fonction accuracy() est utilisée pour calculer les mesures de précision de la prédiction en comparant les prévisions avec les valeurs réelles de la série de test test1. Les mesures de précision sont renvoyées à la sortie standard.
+
+
+
+```{r}
+
+predictions <- predict(ts_arima, n.ahead = length(test1))$pred
+
+ggplot() + 
+
+  geom_line(aes(x = index(test1), y = coredata(test1), color = "Test")) +
+
+  geom_line(aes(x = index(predictions), y = predictions, color = "Forecast")) +
+
+  scale_color_manual(values = c("Test" = "blue", "Forecast" = "darkred")) +
+
+  labs(x = "t", y = "Yt:Nombre de touristes", color = "Legend") +
+
+  ggtitle("Test et Forecast")
+
+accuracy(predictions, test1)
+
+predictions
+
+predictions_df <- data.frame(date = index(predictions), 
+
+                              observed = coredata(test1), 
+
+                              predicted = predictions)
+
+predictions_df 
+
+```
+
+
+
+Les mesures d'erreur de prévision pour le modèle ARIMA(2,1,1) sur l'ensemble de test sont les suivantes :
+
+
+
+Erreur de biais (ME) : -148208.2
+
+Racine carrée de l'erreur quadratique moyenne (RMSE) : 200246.4
+
+Erreur absolue moyenne (MAE) : 166176.4
+
+Erreur de pourcentage moyen (MPE) : -199.8794
+
+Erreur absolue pourcentage moyen (MAPE) : 645.4642
+
+Coefficient de corrélation autocorrélation (ACF1) : 0.730339
+
+Statistique de Theil U : 7.863356
+
+La statistique de Theil U est une mesure de l'exactitude de la prévision, qui compare la racine carrée de la moyenne des carrés des erreurs de prévision avec la racine carrée de la moyenne des carrés des valeurs réelles.
+
+
+
+Dans votre cas, la statistique de Theil U est de 7.863356, ce qui signifie que la performance du modèle ARIMA(2,1,1) est acceptable mais peut être améliorée. Une valeur inférieure à 1 indique une bonne performance du modèle, tandis qu'une valeur supérieure à 1 indique une performance médiocre. Il est donc possible d'explorer d'autres modèles ou d'affiner le modèle actuel pour améliorer les prévisions.
+
+les autres mesures d'erreur indiquent que le modèle n'est pas très performant pour prédire les valeurs sur l'ensemble de test, car les erreurs de prévision sont assez élevées. Cela peut être dû à la complexité de la série chronologique, à l'insuffisance des données ou à d'autres facteurs. Il serait peut-être nécessaire de réévaluer les paramètres du modèle ou d'utiliser une approche différente pour obtenir des prévisions plus précises.
+
+
+
+# Modélisation avec SARIMA:
+
+
+
+SARIMA (Seasonal ARIMA) est une extension de ARIMA pour les séries saisonnières. Il utilise l'autorégression, la moyenne mobile, la différenciation saisonnière et la différenciation normale pour modéliser une série saisonnière.
+
+Commençons d'abord par stationnariser la série saisonnière ts_ds:
+
+
+
+```{r}
+
+ts1_stat <- diff(ts1, 1)
+
+adf.test(ts1_stat)
+
+```
+
+
+
+Les résultats présentés ici montrent trois types de tests ADF avec différents niveaux de tendance ou de dérive.
+
+Dans les trois types, les valeurs de la statistique ADF (colonne ADF) sont inférieures aux valeurs critiques à un niveau de signification de 0,05, ce qui suggère que la série temporelle est stationnaire. De plus, les valeurs de p (colonne p.value) sont toutes inférieures à 0,05, ce qui indique que la probabilité d'observer ces résultats par hasard est très faible.
+
+
+
+Vérifions la saisonnalité de la nouvelle série: ce test a été défini précédemment.
+
+```{r}
+
+isSeasonal(ts1_stat)
+
+```
+
+
+
+Sélectionner la période d'entraînement de la série temporelle ts1_stat allant de janvier 2006 à décembre 2014 et stocker cette période dans l'objet train2.
+
+Sélectionner la période de test de la série temporelle ts1_stat allant de janvier 2015 jusqu'à la fin de la série et stocker cette période dans l'objet test2.
+
+
+
+```{r}
+
+train2 <- window(ts1_stat, end=c(2014,12))
+
+test2<- window(ts1_stat,start=c(2015,1))
+
+```
+
+
+
+Appliquons la fonction auto.arima() sur la série temporelle train2 pour trouver le meilleur modèle SARIMA. Les arguments stepwise=FALSE et approximation=FALSE sont utilisés pour que la fonction teste tous les modèles possibles au lieu de se limiter aux modèles les plus simples. L'argument seasonal=TRUE est utilisé pour spécifier que la série est saisonnière, et l'argument allowdrift=FALSE est utilisé pour exclure les modèles avec une dérive. L'argument trace=TRUE est utilisé pour afficher les informations de progression pendant l'exécution de la fonction.
+
+Puis, on affiche le résumé du modèle SARIMA sélectionné avec la fonction summary().
+
+
+
+```{r}
+
+ts_sarima = auto.arima(train2,
+
+                        stepwise=FALSE,
+
+                        approximation=FALSE,
+
+                        seasonal=TRUE,
+
+                        allowdrift=FALSE,
+
+                        trace=TRUE)
+
+
+
+summary(ts_sarima)
+
+```
+
+
+
+Le meilleur modèle sélectionné est ARIMA(2,0,1)(0,1,0)[12]. Cela signifie qu'il s'agit d'un modèle autorégressif intégré de moyenne mobile saisonnier d'ordre 2, 0 et 1 pour les termes AR, I et MA, respectivement. Le modèle inclut également une différence saisonnière d'ordre 1 avec une période de 12 (saison).
+
+Les coefficients associés aux termes AR1, AR2 et MA1 sont respectivement de 0,9312, -0,2398 et -0,9309. La valeur p associée à chaque coefficient est inférieure à 0,05, ce qui suggère que les coefficients sont significatifs.
+
+La valeur de sigma² est de 1,612e+10 et la log-vraisemblance associée au modèle est de -1092,04. Les mesures d'erreur d'entraînement (ME, RMSE, MAE, MPE, MAPE, MASE et ACF1) sont également fournies, ce qui permet d'évaluer la performance du modèle sur l'ensemble d'entraînement
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ce modèle ARIMA(2,0,1)(0,1,0)[12] est également un modèle saisonnier avec une saisonnalité de 12 mois. Les coefficients AR(1) et AR(2) ont des valeurs similaires à celles du modèle précédent. Le coefficient MA(1) est également proche de celui du modèle précédent. Les statistiques d'erreur d'entraînement sont légèrement meilleures que celles du modèle précédent avec un ME de 11056.02, un RMSE de 116507.2 et un MAE de 71381.5. L'ACF1 est également négatif, indiquant une bonne corrélation des erreurs.
+
+
+
+Il serait bon de procéder à une validation croisée pour évaluer ces deux modèles et déterminer lequel est le meilleur pour la prédiction..
+
+
+
+# Validation du modèle ARIMA(2,0,1)(0,1,0)[12]:
+
+
+
+Validation par résidus : cette méthode consiste à vérifier si les résidus du modèle SARIMA sont aléatoires et ne présentent pas de structure temporelle. Pour cela, on peut utiliser les fonctions checkresiduals ou tsdiag, qui tracent différents graphiques pour vérifier la normalité, l'absence d'autocorrélation, l'homoscédasticité, etc.
+
+
+
+```{r}
+
+checkresiduals(ts_sarima)
+
+```
+
+
+
+Le test de Ljung-Box est utilisé pour vérifier si les résidus d'un modèle ARIMA sont aléatoires ou s'ils présentent une autocorrélation significative. Dans ce cas, le modèle SARIMA sélectionné est (2,0,1)(0,1,0)[12].
+
+Le résultat du test de Ljung-Box montre un Q* de 15.529 et un degré de liberté de 16, avec une p-valeur de 0.4863. Comme la p-valeur est supérieure à 0,05 (niveau de signification communément choisi), on ne peut pas rejeter l'hypothèse nulle selon laquelle les résidus sont aléatoires. Cela indique que le modèle ARIMA(2,0,1)(0,1,0)[12] est un bon ajustement pour les données.
+
+
+
+Effectuons maintenant les prévisions:
+
+
+
+```{r}
+
+predictions2 <- predict(ts_sarima, n.ahead = length(test2))$pred
+
+ggplot() + 
+
+  geom_line(aes(x = index(test2), y = coredata(test2), color = "Test")) +
+
+  geom_line(aes(x = index(predictions2), y = predictions2, color = "Forecast")) +
+
+  scale_color_manual(values = c("Test" = "blue", "Forecast" = "darkred")) +
+
+  labs(x = "t", y = "Yt:Nombre de touristes", color = "Legend") +
+
+  ggtitle("Test et Forecast")
+
+accuracy(predictions2, test2)
+
+
+
+
+
+
+
+predictions2_df <- data.frame(date = index(test2), 
+
+                              observed = coredata(test2), 
+
+                              predicted = abs(predictions2))
+
+predictions2_df
+
+```
+
+
+
+Le tableau affiche les erreurs de prévision du modèle SARIMA pour la période de test. Les différentes métriques d'erreur sont les suivantes :
+
+Les valeurs de RMSE et MAE sont relativement élevées, ce qui indique que les erreurs de prévision ne sont pas négligeables.
+
+La valeur de MPE est positive, ce qui signifie que les prévisions sont en moyenne supérieures aux valeurs réelles.
+
+La valeur de MAPE est inférieure à 25%, ce qui indique que les prévisions ne sont pas très éloignées des valeurs réelles.
+
+La valeur de l'ACF1 est négative, ce qui suggère que les erreurs de prévision ont tendance à s'annuler mutuellement.
+
+La valeur de Theil's U est relativement faible, ce qui indique que le modèle n'est pas très précis dans ses prévisions.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ce modèle ARIMA(2,0,1)(0,1,0)[12] est également un modèle saisonnier avec une saisonnalité de 12 mois. Les coefficients AR(1) et AR(2) ont des valeurs similaires à celles du modèle précédent. Le coefficient MA(1) est également pro
