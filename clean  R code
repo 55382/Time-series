@@ -1,0 +1,123 @@
+library(readxl)
+library(fpp3)
+library(zoo)
+library(forecast)
+library(tseries)
+library(astsa)
+library(dplyr)
+library(lubridate)
+library(tsibble)
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(ggthemes)
+library(corrplot)
+library(lmtest)
+library(sandwich)
+library(TSA)
+library(car)
+library(aTSA)
+library(urca)
+library(seastests)
+library(TSstudio)
+library("cowplot")
+library(stats)
+library(uroot)
+
+# Load data
+Book1 <- read_excel("C://Users//hanab//Book1.xlsx")
+BD <- Book1
+
+# Create time series object
+ts1 <- ts(BD$Nombre, start = c(2007, 1), end = c(2016, 6), frequency = 12)
+
+# Split data into training and testing sets
+train0 <- window(ts1, end = c(2014, 12))
+test0 <- window(ts1, start = c(2015, 1))
+
+# Explore data
+summary(ts1)
+plot(ts1)
+
+# Calculate variance
+variance <- rollapply(ts1, width = 12, FUN = var, align = "right")
+plot(variance)
+
+# Check autocorrelation
+autocorr <- acf(ts1, lag.max = 25)
+Box.test(autocorr$acf, lag = 12, type = "Ljung-Box")
+
+# Decompose time series
+decompose_results <- decompose(ts1, type = c("additive", "multiplicative"))
+plot(decompose_results)
+
+# Check residuals
+residus_add <- decompose_results$additive$random
+residus_mult <- decompose_results$multiplicative$random
+table_residus <- data.frame(residusadd, residusmult)
+names(table_residus) <- c("Additive", "Multiplicative")
+print(table_residus)
+
+# Check normality of residuals
+shapiro.test(residus_mult)
+
+# Check seasonality
+ts_seasonal(ts1, type = "box")
+ts_cor(ts1)
+ggseasonplot(ts1, year.labels = TRUE, year.labels.left = TRUE)
+ggseasonplot(ts1, polar = TRUE)
+
+# Test for seasonality
+hegy_result <- hegy.test(ts1)
+isSeasonal(ts1)
+
+# Plot seasonal component
+plot(decompose_results$seasonal)
+
+# Deseasonalize
+ts_ds <- diff(ts1, differences = 1, lag = 12)
+plot(ts_ds)
+isSeasonal(ts_ds)
+
+# Test stationarity
+adf.test(ts_ds)
+
+# Make series stationary
+ts_ds_diff <- diff(ts_ds, differences = 1)
+autoplot(ts_ds_diff)
+adf.test(ts_ds_diff)
+
+# Model selection
+ts_arima <- auto.arima(train1, stepwise = FALSE, approximation = FALSE, seasonal = FALSE, allowdrift = FALSE, trace = TRUE)
+summary(ts_arima)
+
+# Model validation
+checkresiduals(ts_arima)
+
+# Forecasting
+predictions <- predict(ts_arima, n.ahead = length(test1))$pred
+ggplot() +
+  geom_line(aes(x = index(test1), y = coredata(test1), color = "Test")) +
+  geom_line(aes(x = index(predictions), y = predictions, color = "Forecast")) +
+  scale_color_manual(values = c("Test" = "blue", "Forecast" = "darkred")) +
+  labs(x = "t", y = "Yt:Nombre de touristes", color = "Legend") +
+  ggtitle("Test et Forecast")
+accuracy(predictions, test1)
+
+# SARIMA model
+ts_sarima <- auto.arima(train2, stepwise = FALSE, approximation = FALSE, seasonal = TRUE, allowdrift = FALSE, trace = TRUE)
+summary(ts_sarima)
+
+# Model validation
+checkresiduals(ts_sarima)
+
+# Forecasting
+predictions2 <- predict(ts_sarima, n.ahead = length(test2))$pred
+ggplot() +
+  geom_line(aes(x = index(test2), y = coredata(test2), color = "Test")) +
+  geom_line(aes(x = index(predictions2), y = predictions2, color = "Forecast")) +
+  scale_color_manual(values = c("Test" = "blue", "Forecast" = "darkred")) +
+  labs(x = "t", y = "Yt:Nombre de touristes", color = "Legend") +
+  ggtitle("Test et Forecast")
+accuracy(predictions2, test2)
